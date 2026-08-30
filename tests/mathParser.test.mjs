@@ -31,6 +31,8 @@ test('parses roots, logarithms, subscripts, and vectors', () => {
 
 test('parses calculus with spoken bounds and expressions', () => {
   assert.deepEqual(math('integral from zero to two of f of x dx'), ['\\int_{0}^{2} f\\left(x\\right)\\,dx'])
+  assert.deepEqual(math('the integral of f of x from 3 to 6 is seven'), ['\\int_{3}^{6} f\\left(x\\right) = 7'])
+  assert.deepEqual(math('the integral of x squared dx from zero to two equals eight'), ['\\int_{0}^{2} x^{2}\\,dx = 8'])
   assert.deepEqual(math('integral from a to b of x squared dx, then continue'), ['\\int_{a}^{b} x^{2}\\,dx'])
   assert.deepEqual(math('integral from a to b of x square dx, then continue'), ['\\int_{a}^{b} x^{2}\\,dx'])
   assert.deepEqual(math('integral from zero to one of tangent inverse of x dx'), ['\\int_{0}^{1} \\arctan\\left(x\\right)\\,dx'])

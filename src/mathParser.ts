@@ -155,6 +155,13 @@ export function parseMathNotes(input: string): NotePart[] {
         ? `${identity} \\quad \\text{if } ${value(conditionLeft)} > ${value(conditionRight)}`
         : identity
     })
+  // Transcripts often put the integrand before the bounds and use a bare
+  // “is” for equality: “the integral of f of x from 3 to 6 is seven.”
+  rule(new RegExp(`\\b(?:the )?(?:definite )?integral of (${arithmeticPattern})(?:\\s+d\\s*([a-z]))?\\s+from (${scalarPattern}) to (${scalarPattern})(?:\\s+(is equal to|equal to|equals|is)\\s+(${arithmeticPattern}))?(?=[,.;]|\\s+(?:and|but|which|so)\\b|$)`, 'gi'),
+    (expression, variable, lower, upper, relation, result) => {
+      const integral = `\\int_{${value(lower)}}^{${value(upper)}} ${expressionValue(expression)}${variable ? `\\,d${value(variable)}` : ''}`
+      return relation && result ? `${integral} = ${expressionValue(result)}` : integral
+    })
   // A spoken differential is a hard boundary. Without this rule, later prose
   // such as “can be found as” can be swallowed into f(x) before a connector.
   rule(new RegExp(`\\b(?:the )?(?:definite )?integral from (${scalarPattern}) to (${scalarPattern}) of (${arithmeticPattern})\\s+d\\s*([a-z])\\b`, 'gi'),
