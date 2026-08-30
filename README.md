@@ -106,7 +106,7 @@ For Cloudflare's Git integration:
 1. Push the repository to GitHub.
 2. In **Workers & Pages**, import the repository as a Worker.
 3. Use `npm run build` as the build command and `npx wrangler deploy` as the deploy command.
-4. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` as build variables in Cloudflare. They are public client configuration, not secrets.
+4. Open the Worker's **Settings > Build > Build Variables and Secrets** and add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Do not add them under the runtime **Variables & Secrets** section; static-assets-only Workers do not have runtime bindings, and Vite needs these values while building.
 5. Keep production and preview deployments on separate Supabase projects when possible.
 
 Pull requests are validated independently by GitHub Actions before Cloudflare deploys merged changes.
