@@ -1,0 +1,24 @@
+name: Feature request
+description: Suggest a focused improvement to Mathnotes.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What workflow or notation is difficult today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the result you would expect as a user.
+    validations:
+      required: true
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples
+      description: For parser features, include sanitized input and expected LaTeX or rendered notation.

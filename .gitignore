@@ -1,0 +1,27 @@
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+
+# Environment files and local secrets
+.env
+.env.*
+!.env.example
+.dev.vars*
+!.dev.vars.example
+
+# Cloudflare and Supabase local state
+.wrangler/
+supabase/.branches/
+supabase/.temp/
+
+# Local design tooling and editor files
+.impeccable/
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
