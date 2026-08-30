@@ -91,6 +91,8 @@ Before production, configure the hosted Supabase Auth URL/redirect allowlist, en
 | `npm run check` | Run lint, unit tests, and the production build |
 | `npm test` | Run parser, transcript, and policy-source tests |
 | `npm run db:test` | Run live PostgreSQL RLS tests against local Supabase |
+| `npm run db:types:local` | Generate database types from local Supabase |
+| `npm run db:deploy` | Push migrations to the linked project, then regenerate types |
 | `npm run preview` | Preview the Vite production output |
 | `npm run preview:cloudflare` | Preview the built app in the Workers runtime |
 | `npm run deploy` | Build and deploy through Wrangler |
