@@ -43,6 +43,23 @@ test('parses calculus with spoken bounds and expressions', () => {
   assert.deepEqual(math('the product from k equals one to five of k'), ['\\prod_{k=1}^{5} k'])
 })
 
+test('accepts elastic calculus word order and transcription pauses', () => {
+  assert.deepEqual(math('the integral of f of x, from three to six, is seven'), ['\\int_{3}^{6} f\\left(x\\right) = 7'])
+  assert.deepEqual(math('the integral of f of x between three and six equals seven'), ['\\int_{3}^{6} f\\left(x\\right) = 7'])
+  assert.deepEqual(math('the integral from three up to six of f of x is seven'), ['\\int_{3}^{6} f\\left(x\\right) = 7'])
+  assert.deepEqual(math('integrate x squared from zero to two'), ['\\int_{0}^{2} x^{2}'])
+  assert.deepEqual(math('the limit of sine x over x as x approaches zero equals one'), ['\\lim_{x \\to 0} \\frac{\\sin\\left(x\\right)}{x} = 1'])
+  assert.deepEqual(math('the sum of i squared from i equals one to ten'), ['\\sum_{i=1}^{10} i^{2}'])
+  assert.deepEqual(math('the product of k from k equals one to five'), ['\\prod_{k=1}^{5} k'])
+})
+
+test('joins adjacent math through natural relation phrases', () => {
+  assert.deepEqual(math('the derivative of x squared with respect to x equals two times x'), ['\\frac{d}{dx}\\left(x^{2}\\right) = 2 \\times x'])
+  assert.deepEqual(math('sine x plus cosine x results in one'), ['\\sin\\left(x\\right) + \\cos\\left(x\\right) = 1'])
+  assert.deepEqual(math('x is at most five'), ['x \\leq 5'])
+  assert.deepEqual(math('x is no less than negative two'), ['x \\geq -2'])
+})
+
 test('parses ordinary and partial derivatives', () => {
   assert.deepEqual(math('the derivative of y with respect to x'), ['\\frac{dy}{dx}'])
   assert.deepEqual(math('the second derivative of y with respect to x'), ['\\frac{d^2y}{dx^2}'])
@@ -52,6 +69,8 @@ test('parses ordinary and partial derivatives', () => {
 test('does not turn conversational operators into standalone symbols', () => {
   assert.deepEqual(math('move that minus over'), [])
   assert.deepEqual(math('draw a square around the answer'), [])
+  assert.deepEqual(math('x is a positive function'), [])
+  assert.deepEqual(math('the result is at least five minutes long'), [])
   const identity = parseMathNotes('the integral from a to b minus the integral from c to b, then move that minus over')
   assert.equal(identity.filter((part) => part.type === 'math').length, 1)
   assert.equal(identity.some((part) => part.type === 'math' && part.value === '\\int_{a}^{b} - \\int_{c}^{b}'), true)

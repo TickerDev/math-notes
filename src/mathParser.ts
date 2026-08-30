@@ -52,7 +52,9 @@ const absolutePattern = `absolute value of\\s+(?:${poweredAtomPattern}|${fractio
 const atomPattern = `(?:${rootPattern}|${absolutePattern}|${fractionPattern}|${poweredAtomPattern})`
 const arithmeticPattern = `${atomPattern}(?:\\s+(?:plus or minus|plus|minus|times|multiplied by|divided by)\\s+${atomPattern})*`
 const integralLabelPattern = `(?:the\\s+)?(?:minimum|maximum)\\s+value`
-const relationPattern = 'is not equal to|does not equal|not equal to|is greater than or equal to|greater than or equal to|is less than or equal to|less than or equal to|is approximately equal to|approximately equals|can be found as|is given by|is equal to|equal to|equals|is greater than|greater than|is less than|less than'
+const relationPattern = 'is not equal to|does not equal|not equal to|is greater than or equal to|greater than or equal to|is less than or equal to|less than or equal to|is approximately equal to|approximately equals|is no greater than|no greater than|is no less than|no less than|is at least|at least|is at most|at most|can be found as|is given by|should be equal to|should equal|is equal to|equal to|evaluates to|results in|gives us|gives|equals|is greater than|greater than|is less than|less than'
+const calculusRelationPattern = `(?:${relationPattern}|is)`
+const expressionBoundaryPattern = `(?=[,.;]|\\s+(?:and|but|which|so|then|for)\\b|$)`
 
 function spokenNumberValue(input: string): string | null {
   const normalized = input.toLowerCase().replace(/-/g, ' ').trim()
@@ -124,8 +126,30 @@ function integralExpressionValue(input: string): string {
   return expressionValue(input)
 }
 
+function derivativeExpressionValue(expression: string, variable: string, order = 1, partial = false): string {
+  const simple = new RegExp(`^${scalarPattern}$`, 'i').test(expression.trim())
+  const body = expressionValue(expression)
+  const variableValue = value(variable)
+
+  if (partial) {
+    return simple
+      ? `\\frac{\\partial ${body}}{\\partial ${variableValue}}`
+      : `\\frac{\\partial}{\\partial ${variableValue}}\\left(${body}\\right)`
+  }
+  if (order === 2) {
+    return simple
+      ? `\\frac{d^2${body}}{d${variableValue}^2}`
+      : `\\frac{d^2}{d${variableValue}^2}\\left(${body}\\right)`
+  }
+  return simple
+    ? `\\frac{d${body}}{d${variableValue}}`
+    : `\\frac{d}{d${variableValue}}\\left(${body}\\right)`
+}
+
 const relations: Record<string, string> = {
-  'is equal to': '=', 'equal to': '=', equals: '=',
+  is: '=', 'is equal to': '=', 'equal to': '=', equals: '=',
+  'should be equal to': '=', 'should equal': '=', 'evaluates to': '=',
+  'results in': '=', 'gives us': '=', gives: '=',
   'is not equal to': '\\neq', 'does not equal': '\\neq', 'not equal to': '\\neq',
   'is approximately equal to': '\\approx', 'approximately equals': '\\approx',
   'can be found as': '=', 'is given by': '=',
@@ -133,6 +157,10 @@ const relations: Record<string, string> = {
   'is less than': '<', 'less than': '<',
   'is greater than or equal to': '\\geq', 'greater than or equal to': '\\geq',
   'is less than or equal to': '\\leq', 'less than or equal to': '\\leq',
+  'is no less than': '\\geq', 'no less than': '\\geq',
+  'is at least': '\\geq', 'at least': '\\geq',
+  'is no greater than': '\\leq', 'no greater than': '\\leq',
+  'is at most': '\\leq', 'at most': '\\leq',
 }
 
 function protect(latex: string, tokens: { latex: string; source: string }[], source: string) {
@@ -155,12 +183,27 @@ export function parseMathNotes(input: string): NotePart[] {
         ? `${identity} \\quad \\text{if } ${value(conditionLeft)} > ${value(conditionRight)}`
         : identity
     })
-  // Transcripts often put the integrand before the bounds and use a bare
-  // “is” for equality: “the integral of f of x from 3 to 6 is seven.”
-  rule(new RegExp(`\\b(?:the )?(?:definite )?integral of (${arithmeticPattern})(?:\\s+d\\s*([a-z]))?\\s+from (${scalarPattern}) to (${scalarPattern})(?:\\s+(is equal to|equal to|equals|is)\\s+(${arithmeticPattern}))?(?=[,.;]|\\s+(?:and|but|which|so)\\b|$)`, 'gi'),
+  // Transcripts move bounds around and often insert pauses or a bare “is”.
+  // Keep each statement together rather than creating math islands in prose.
+  rule(new RegExp(`\\b(?:the )?(?:definite )?integral of (${arithmeticPattern})(?:\\s+d\\s*([a-z]))?\\s*,?\\s*from (${scalarPattern}) (?:up\\s+)?to (${scalarPattern})(?:\\s*,?\\s*(${calculusRelationPattern})\\s+(${arithmeticPattern}))?${expressionBoundaryPattern}`, 'gi'),
     (expression, variable, lower, upper, relation, result) => {
       const integral = `\\int_{${value(lower)}}^{${value(upper)}} ${expressionValue(expression)}${variable ? `\\,d${value(variable)}` : ''}`
-      return relation && result ? `${integral} = ${expressionValue(result)}` : integral
+      return relation && result ? `${integral} ${relations[relation.toLowerCase()]} ${expressionValue(result)}` : integral
+    })
+  rule(new RegExp(`\\b(?:the )?(?:definite )?integral of (${arithmeticPattern})(?:\\s+d\\s*([a-z]))?\\s*,?\\s*between (${scalarPattern}) and (${scalarPattern})(?:\\s*,?\\s*(${calculusRelationPattern})\\s+(${arithmeticPattern}))?${expressionBoundaryPattern}`, 'gi'),
+    (expression, variable, lower, upper, relation, result) => {
+      const integral = `\\int_{${value(lower)}}^{${value(upper)}} ${expressionValue(expression)}${variable ? `\\,d${value(variable)}` : ''}`
+      return relation && result ? `${integral} ${relations[relation.toLowerCase()]} ${expressionValue(result)}` : integral
+    })
+  rule(new RegExp(`\\b(?:the )?(?:definite )?integral from (${scalarPattern}) (?:up\\s+)?to (${scalarPattern}) of (${arithmeticPattern})(?:\\s+d\\s*([a-z]))?(?:\\s*,?\\s*(${calculusRelationPattern})\\s+(${arithmeticPattern}))?${expressionBoundaryPattern}`, 'gi'),
+    (lower, upper, expression, variable, relation, result) => {
+      const integral = `\\int_{${value(lower)}}^{${value(upper)}} ${expressionValue(expression)}${variable ? `\\,d${value(variable)}` : ''}`
+      return relation && result ? `${integral} ${relations[relation.toLowerCase()]} ${expressionValue(result)}` : integral
+    })
+  rule(new RegExp(`\\bintegrate (${arithmeticPattern})(?:\\s+with respect to\\s+([a-z]))?\\s+from (${scalarPattern}) (?:up\\s+)?to (${scalarPattern})(?:\\s*,?\\s*(${calculusRelationPattern})\\s+(${arithmeticPattern}))?${expressionBoundaryPattern}`, 'gi'),
+    (expression, variable, lower, upper, relation, result) => {
+      const integral = `\\int_{${value(lower)}}^{${value(upper)}} ${expressionValue(expression)}${variable ? `\\,d${value(variable)}` : ''}`
+      return relation && result ? `${integral} ${relations[relation.toLowerCase()]} ${expressionValue(result)}` : integral
     })
   // A spoken differential is a hard boundary. Without this rule, later prose
   // such as “can be found as” can be swallowed into f(x) before a connector.
@@ -170,18 +213,26 @@ export function parseMathNotes(input: string): NotePart[] {
     (lower, upper, expression) => `\\int_{${value(lower)}}^{${value(upper)}}${expression ? ` ${expressionValue(expression)}` : ''}`)
   rule(new RegExp(`\\b(?:the )?(?:indefinite integral|integral) of (${arithmeticPattern}|${integralLabelPattern})(?=\\s+with respect to\\s+([a-z])|\\s+(?:${relationPattern})\\s+|[,.;]|\\s*$)`, 'gi'),
     (expression, variable) => `\\int ${integralExpressionValue(expression)}${variable ? `\\,d${value(variable)}` : ''}`)
+  rule(new RegExp(`\\b(?:the )?(?:sum|summation) of (${arithmeticPattern}) from ([a-z]) (?:equals|equal to|is) (${scalarPattern}) to (${scalarPattern})`, 'gi'),
+    (expression, index, lower, upper) => `\\sum_{${value(index)}=${value(lower)}}^{${value(upper)}} ${expressionValue(expression)}`)
   rule(new RegExp(`\\b(?:the )?(?:sum|summation) from ([a-z]) (?:equals|equal to|is) (${scalarPattern}) to (${scalarPattern})(?: of ([a-z0-9 +\\-*/^]+))?`, 'gi'),
     (index, lower, upper, expression) => `\\sum_{${value(index)}=${value(lower)}}^{${value(upper)}}${expression ? ` ${expressionValue(expression)}` : ''}`)
+  rule(new RegExp(`\\b(?:the )?product of (${arithmeticPattern}) from ([a-z]) (?:equals|equal to|is) (${scalarPattern}) to (${scalarPattern})`, 'gi'),
+    (expression, index, lower, upper) => `\\prod_{${value(index)}=${value(lower)}}^{${value(upper)}} ${expressionValue(expression)}`)
   rule(new RegExp(`\\b(?:the )?product from ([a-z]) (?:equals|equal to|is) (${scalarPattern}) to (${scalarPattern})(?: of ([a-z0-9 +\\-*/^]+))?`, 'gi'),
     (index, lower, upper, expression) => `\\prod_{${value(index)}=${value(lower)}}^{${value(upper)}}${expression ? ` ${expressionValue(expression)}` : ''}`)
+  rule(new RegExp(`\\b(?:the )?limit of (${arithmeticPattern}) as ([a-z]) (?:approaches|goes to|tends to) (${scalarPattern})`, 'gi'),
+    (expression, variable, destination) => `\\lim_{${value(variable)} \\to ${value(destination)}} ${expressionValue(expression)}`)
   rule(new RegExp(`\\b(?:the )?limit as ([a-z]) (?:approaches|goes to|tends to) (${scalarPattern})(?: of ([a-z0-9 +\\-*/^]+))?`, 'gi'),
     (variable, destination, expression) => `\\lim_{${value(variable)} \\to ${value(destination)}}${expression ? ` ${expressionValue(expression)}` : ''}`)
-  rule(/\b(?:the )?second derivative of ([a-z0-9]+) with respect to ([a-z])\b/gi,
-    (expression, variable) => `\\frac{d^2${value(expression)}}{d${value(variable)}^2}`)
-  rule(/\b(?:the )?(?:partial derivative|partial) of ([a-z0-9]+) with respect to ([a-z])\b/gi,
-    (expression, variable) => `\\frac{\\partial ${value(expression)}}{\\partial ${value(variable)}}`)
-  rule(/\b(?:the )?derivative of ([a-z0-9]+) with respect to ([a-z])\b/gi,
-    (expression, variable) => `\\frac{d${value(expression)}}{d${value(variable)}}`)
+  rule(new RegExp(`\\b(?:the )?second derivative of (${arithmeticPattern}) with respect to ([a-z])\\b`, 'gi'),
+    (expression, variable) => derivativeExpressionValue(expression, variable, 2))
+  rule(new RegExp(`\\b(?:the )?(?:partial derivative|partial) of (${arithmeticPattern}) with respect to ([a-z])\\b`, 'gi'),
+    (expression, variable) => derivativeExpressionValue(expression, variable, 1, true))
+  rule(new RegExp(`\\b(?:the )?(?:first )?derivative of (${arithmeticPattern}) with respect to ([a-z])\\b`, 'gi'),
+    (expression, variable) => derivativeExpressionValue(expression, variable))
+  rule(new RegExp(`\\bdifferentiate (${arithmeticPattern}) with respect to ([a-z])\\b`, 'gi'),
+    (expression, variable) => derivativeExpressionValue(expression, variable))
 
   // Parse complete arithmetic statements after calculus constructs have been
   // protected, so “sum from i equals…” is not mistaken for the equation i = 1.
@@ -195,6 +246,12 @@ export function parseMathNotes(input: string): NotePart[] {
   rule(/\b([a-z0-9]+) subscript ([a-z0-9]+)\b/gi, (base, subscript) => `${value(base)}_{${value(subscript)}}`)
   rule(/\bvector ([a-z])\b/gi, (name) => `\\vec{${value(name)}}`)
 
+  // A recognized construct can safely absorb a natural relation and a raw
+  // right-hand expression. This makes adjacent math elastic without treating
+  // every conversational “is” as an equals sign.
+  text = text.replace(new RegExp(`(⟦\\d+⟧)(\\s+)(${calculusRelationPattern})(\\s+)(${arithmeticPattern})${expressionBoundaryPattern}`, 'gi'),
+    (_match, left, before, relation, after, right) => `${left}${before}${protect(relations[relation.toLowerCase()], tokens, relation)}${after}${protect(expressionValue(right), tokens, right)}`)
+
   // Connect already-recognized expressions, but leave conversational words
   // such as “move that minus over” untouched.
   const connector = (phrase: RegExp, latex: string) => {
@@ -206,7 +263,9 @@ export function parseMathNotes(input: string): NotePart[] {
   connector(/is not equal to|does not equal|not equal to/, '\\neq')
   connector(/is approximately equal to|approximately equals/, '\\approx')
   connector(/can be found as|is given by/, '=')
-  connector(/should be equal to|is equal to|equal to|equals/, '=')
+  connector(/should be equal to|should equal|is equal to|equal to|evaluates to|results in|gives us|gives|equals/, '=')
+  connector(/is no less than|no less than|is at least|at least/, '\\geq')
+  connector(/is no greater than|no greater than|is at most|at most/, '\\leq')
   connector(/plus or minus/, '\\pm')
   connector(/multiplied by|times/, '\\times')
   connector(/divided by/, '\\div')
